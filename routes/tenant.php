@@ -111,16 +111,19 @@ Route::domain('{tenant?}')->where(['tenant' => '.*'])->group(function () {
                 Route::post('/pos/checkout/{appointment}', [\App\Http\Controllers\Tenant\PosController::class, 'checkout'])->name('tenant.pos.checkout');
                 Route::get('/invoices', [\App\Http\Controllers\Tenant\InvoiceController::class, 'index'])->name('tenant.invoices.index');
                 Route::get('/invoices/{invoice}', [\App\Http\Controllers\Tenant\InvoiceController::class, 'show'])->name('tenant.invoices.show');
+                Route::get('/invoices/{invoice}/pdf', [\App\Http\Controllers\Tenant\InvoiceController::class, 'downloadPdf'])->name('tenant.invoices.pdf');
             });
 
             // Reporting
             Route::middleware(['can:view reports'])->group(function () {
                 Route::get('/reports', [\App\Http\Controllers\Tenant\ReportController::class, 'index'])->name('tenant.reports.index');
+                Route::get('/reports/export', [\App\Http\Controllers\Tenant\ReportController::class, 'export'])->name('tenant.reports.export');
             });
 
             // Financial Management
             Route::middleware(['can:view reports'])->group(function () {
                 Route::get('/financials', [\App\Http\Controllers\Tenant\FinancialController::class, 'index'])->name('tenant.financials.index');
+                Route::get('/financials/export', [\App\Http\Controllers\Tenant\FinancialController::class, 'export'])->name('tenant.financials.export');
                 
                 // Expense Categories CRUD
                 Route::post('/expense-categories', [\App\Http\Controllers\Tenant\ExpenseCategoryController::class, 'store'])->name('tenant.expense-categories.store');

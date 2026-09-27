@@ -16,7 +16,8 @@ import {
     ArrowRight,
     Trash2,
     CalendarSearch,
-    BookOpen
+    BookOpen,
+    Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -129,6 +130,17 @@ export default function FinancialsIndex({
                         <p className="text-sm text-muted-foreground mt-1">
                             Log business expenses, collect outstanding customer credit balances, and audit cash flow margins.
                         </p>
+                    </div>
+                    <div>
+                        <a 
+                            href={`/financials/export?start_date=${encodeURIComponent(filters.start_date)}&end_date=${encodeURIComponent(filters.end_date)}`}
+                            download
+                        >
+                            <Button variant="outline" size="sm" className="gap-1.5">
+                                <Download className="h-4 w-4" />
+                                Export CSV
+                            </Button>
+                        </a>
                     </div>
                 </div>
 
@@ -441,6 +453,15 @@ function ProfitLossTab({ filters, report }: ProfitLossTabProps) {
                         <CalendarSearch className="h-3.5 w-3.5 mr-1" />
                         Apply
                     </Button>
+                    <a 
+                        href={`/financials/export?start_date=${encodeURIComponent(dateRange.start_date)}&end_date=${encodeURIComponent(dateRange.end_date)}`}
+                        download
+                    >
+                        <Button type="button" variant="outline" size="sm" className="h-8 gap-1">
+                            <Download className="h-3.5 w-3.5" />
+                            Export CSV
+                        </Button>
+                    </a>
                 </form>
             </div>
 

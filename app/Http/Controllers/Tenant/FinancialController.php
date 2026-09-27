@@ -112,4 +112,126 @@ class FinancialController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Export Financials & Ledger data as a CSV file.
+     */
+    public function export(Request $request)
+    {
+        $startDate = $request->input('start_date')
+            ? Carbon::parse($request->input('start_date'))->startOfDay()
+            : Carbon::now()->startOfMonth()->startOfDay();
+
+        $endDate = $request->input('end_date')
+            ? Carbon::parse($request->input('end_date'))->endOfDay()
+            : Carbon::now()->endOfDay();
+
+        $grossSales = Invoice::whereBetween('created_at', [$startDate, $endDate])->sum('total_amount');
+        $cashSales = Invoice::whereBetween('created_at', [$startDate, $endDate])
+            ->where('payment_method', '!=', 'credit')
+            ->sum('total_amount');
+        $collectedCredits = CreditPayment::whereBetween('created_at', [$startDate, $endDate])->sum('amount');
+        $grossCashInflow = $cashSales + $collectedCredits;
+        $totalExpenses = Expense::whereBetween('expense_date', [$startDate, $endDate])->sum('amount');
+
+        $appointments = Appointment::with(['staff', 'services'])
+            ->join('invoices', 'appointments.id', '=', 'invoices.appointment_id')
+            ->whereBetween('invoices.created_at', [$startDate, $endDate])
+            ->where('invoices.status', 'paid')
+            ->select('appointments.*')
+            ->get();
+
+        $totalCommissions = 0.00;
+        foreach ($appointments as $apt) {
+            $staff = $apt->staff;
+            if ($staff && $staff->commission_percentage > 0) {
+                $servicesSum = $apt->services->sum('pivot.price');
+                $totalCommissions += $servicesSum * ($staff->commission_percentage / 100);
+            }
+        }
+
+        $netIncomeAccrual = max(-999999, $grossSales - $totalExpenses - $totalCommissions);
+        $netCashFlow = max(-999999, $grossCashInflow - $totalExpenses - $totalCommissions);
+
+        $filename = 'financial-report-' . $startDate->format('Y-m-d') . '-to-' . $endDate->format('Y-m-d') . '.csv';
+
+        return response()->streamDownload(function () use (
+            $startDate, $endDate, $grossSales, $cashSales, $collectedCredits,
+            $grossCashInflow, $totalExpenses, $totalCommissions, $netIncomeAccrual, $netCashFlow
+        ) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, ['AURA SALON SUITE - FINANCIAL REPORT & LEDGER']);
+            fputcsv($handle, ['Period:', $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d')]);
+            fputcsv($handle, []);
+
+            // P&L Summary
+            fputcsv($handle, ['--- PROFIT & LOSS SUMMARY ---']);
+            fputcsv($handle, ['Metric', 'Amount ($)']);
+            fputcsv($handle, ['Gross Sales (Accrual)', number_format($grossSales, 2, '.', '')]);
+            fputcsv($handle, ['Cash Sales (POS Inflow)', number_format($cashSales, 2, '.', '')]);
+            fputcsv($handle, ['Collected Credit Payments', number_format($collectedCredits, 2, '.', '')]);
+            fputcsv($handle, ['Gross Cash Inflow', number_format($grossCashInflow, 2, '.', '')]);
+            fputcsv($handle, ['Total Expenses', number_format($totalExpenses, 2, '.', '')]);
+            fputcsv($handle, ['Staff Commissions', number_format($totalCommissions, 2, '.', '')]);
+            fputcsv($handle, ['Net Income (Accrual)', number_format($netIncomeAccrual, 2, '.', '')]);
+            fputcsv($handle, ['Net Cash Flow', number_format($netCashFlow, 2, '.', '')]);
+            fputcsv($handle, []);
+
+            // Expenses Breakdown
+            fputcsv($handle, ['--- EXPENSES IN PERIOD ---']);
+            fputcsv($handle, ['Date', 'Category', 'Reference #', 'Logged By', 'Amount ($)', 'Notes']);
+            $periodExpenses = Expense::with(['category', 'user'])
+                ->whereBetween('expense_date', [$startDate, $endDate])
+                ->orderBy('expense_date', 'desc')
+                ->get();
+            foreach ($periodExpenses as $exp) {
+                fputcsv($handle, [
+                    $exp->expense_date ? $exp->expense_date->format('Y-m-d') : '',
+                    $exp->category ? $exp->category->name : 'Uncategorized',
+                    $exp->ref_number ?? 'N/A',
+                    $exp->user ? $exp->user->name : 'System',
+                    number_format((float) $exp->amount, 2, '.', ''),
+                    $exp->notes ?? '',
+                ]);
+            }
+            fputcsv($handle, []);
+
+            // Credit Collections
+            fputcsv($handle, ['--- CREDIT COLLECTIONS IN PERIOD ---']);
+            fputcsv($handle, ['Date', 'Customer', 'Received By', 'Method', 'Amount ($)', 'Notes']);
+            $periodCredits = CreditPayment::with(['customer', 'user'])
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->orderBy('created_at', 'desc')
+                ->get();
+            foreach ($periodCredits as $cp) {
+                fputcsv($handle, [
+                    $cp->created_at->format('Y-m-d H:i'),
+                    $cp->customer ? $cp->customer->name : 'N/A',
+                    $cp->user ? $cp->user->name : 'Staff',
+                    $cp->payment_method,
+                    number_format((float) $cp->amount, 2, '.', ''),
+                    $cp->notes ?? '',
+                ]);
+            }
+            fputcsv($handle, []);
+
+            // Outstanding Dues
+            fputcsv($handle, ['--- CURRENT OUTSTANDING DUES ---']);
+            fputcsv($handle, ['Customer', 'Mobile', 'Credit Limit ($)', 'Outstanding Balance ($)']);
+            $dues = Customer::where('outstanding_balance', '>', 0)->get();
+            foreach ($dues as $c) {
+                fputcsv($handle, [
+                    $c->name,
+                    $c->mobile ?? '',
+                    number_format((float) $c->credit_limit, 2, '.', ''),
+                    number_format((float) $c->outstanding_balance, 2, '.', ''),
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
 }

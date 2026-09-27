@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { TrendingUp, CreditCard, Users, Scissors } from 'lucide-react';
+import { TrendingUp, CreditCard, Users, Scissors, Download } from 'lucide-react';
 
 interface ReportMetrics {
     total_revenue: string;
@@ -49,7 +49,18 @@ export default function ReportsIndex({ filters, metrics }: Props) {
                                 <Input type="date" className="h-9" value={dateRange.end_date} onChange={e => setDateRange({...dateRange, end_date: e.target.value})} />
                             </div>
                         </div>
-                        <Button type="submit" size="sm" className="h-9">Filter</Button>
+                        <div className="flex gap-2">
+                            <Button type="submit" size="sm" className="h-9">Filter</Button>
+                            <a 
+                                href={`/reports/export?start_date=${encodeURIComponent(dateRange.start_date)}&end_date=${encodeURIComponent(dateRange.end_date)}`}
+                                download
+                            >
+                                <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5">
+                                    <Download className="h-4 w-4" />
+                                    Export CSV
+                                </Button>
+                            </a>
+                        </div>
                     </form>
                 </div>
 

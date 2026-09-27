@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Printer, Scissors } from 'lucide-react';
+import { ArrowLeft, Printer, Scissors, Download } from 'lucide-react';
 
 interface InvoiceItem {
     id: number;
@@ -44,9 +44,16 @@ export default function InvoiceShow({ invoice }: Props) {
                     <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground" onClick={() => router.get('/invoices')}>
                         <ArrowLeft className="h-4 w-4" /> Back to Invoices
                     </Button>
-                    <Button onClick={handlePrint} className="gap-2">
-                        <Printer className="h-4 w-4" /> Print Receipt
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <a href={`/invoices/${invoice.id}/pdf`} download={`invoice-${invoice.invoice_number}.pdf`}>
+                            <Button variant="outline" className="gap-2">
+                                <Download className="h-4 w-4" /> Download PDF
+                            </Button>
+                        </a>
+                        <Button onClick={handlePrint} className="gap-2">
+                            <Printer className="h-4 w-4" /> Print Receipt
+                        </Button>
+                    </div>
                 </div>
             </div>
 

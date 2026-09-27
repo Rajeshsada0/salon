@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Inertia\Inertia;
 
 class InvoiceController extends Controller
@@ -27,10 +28,22 @@ class InvoiceController extends Controller
      */
     public function show($tenant, Invoice $invoice)
     {
-        $invoice->load(['customer', 'items', 'appointment.staff']);
+        $invoice->load(['customer', 'items', 'appointment.staff', 'payments', 'couponCode']);
 
         return Inertia::render('tenant/invoices/show', [
             'invoice' => $invoice,
         ]);
+    }
+
+    /**
+     * Download a print-ready PDF copy of the receipt.
+     */
+    public function downloadPdf($tenant, Invoice $invoice)
+    {
+        $invoice->load(['customer', 'items', 'appointment.staff', 'payments', 'couponCode']);
+
+        $pdf = Pdf::loadView('tenant.pdf.invoice', ['invoice' => $invoice]);
+
+        return $pdf->download("invoice-{$invoice->invoice_number}.pdf");
     }
 }
